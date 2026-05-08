@@ -97,10 +97,42 @@ zipfile.ZipFile('实验报告模板.docx').extractall('/tmp/work/report/')
 ### 第三步：生成运行截图
 
 **方式1：浏览器渲染（推荐）**
-1. 创建终端风格 HTML（深色背景 #1e1e1e，等宽字体 Consolas，14px）
+1. 创建终端风格 HTML（见下方模板）
 2. 启动 HTTP 服务器：`python3 -m http.server 8766`
 3. 用浏览器工具打开并截图
 4. 保存为 PNG
+
+**终端 HTML 模板（支持中文）：**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400&display=swap" rel="stylesheet">
+<style>
+body {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Consolas', 'Noto Sans SC', 'Courier New', monospace;
+  font-size: 14px;
+  padding: 20px;
+  margin: 0;
+  white-space: pre;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>========================================
+  实验名称
+========================================
+
+运行输出内容...
+
+========================================</body>
+</html>
+```
+
+> **重要**：必须包含 `Noto Sans SC` 字体链接，否则在某些平台上中文会显示乱码。
 
 **方式2：用户自己提供截图**
 - 用户上传截图文件
