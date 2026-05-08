@@ -48,51 +48,76 @@ def fill_header(xml, info):
     """填充表头信息"""
     print("填充表头信息...")
     
-    # 年级
+    # 年级 - 使用更灵活的匹配
     if info.get('grade'):
-        xml = xml.replace(
-            '<w:t xml:space="preserve">           </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>级</w:t>',
-            f'<w:t xml:space="preserve">{info["grade"]:10s}</w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>级</w:t>', 1)
+        old_pattern = '<w:t xml:space="preserve">           </w:t>'
+        if old_pattern in xml:
+            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{info["grade"]:10s}</w:t>', 1)
+            print(f"  ✓ 年级: {info['grade']}")
+        else:
+            print(f"  ✗ 年级替换失败，未找到匹配模式")
     
     # 班级
     if info.get('class_name'):
-        xml = xml.replace(
-            '<w:t xml:space="preserve">        </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>班</w:t>',
-            f'<w:t xml:space="preserve">{info["class_name"]:8s}</w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>班</w:t>', 1)
+        old_pattern = '<w:t xml:space="preserve">        </w:t>'
+        if old_pattern in xml:
+            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{info["class_name"]:8s}</w:t>', 1)
+            print(f"  ✓ 班级: {info['class_name']}")
+        else:
+            print(f"  ✗ 班级替换失败，未找到匹配模式")
     
     # 姓名
     if info.get('name'):
-        xml = xml.replace(
-            '<w:t xml:space="preserve">           </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:rFonts w:cs="Calibri" w:eastAsia="Calibri"/>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t xml:space="preserve">  </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>学号</w:t>',
-            f'<w:t xml:space="preserve">{info["name"]:10s}</w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:rFonts w:cs="Calibri" w:eastAsia="Calibri"/>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t xml:space="preserve">  </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>学号</w:t>', 1)
+        # 尝试多种匹配模式
+        patterns = [
+            ('<w:t xml:space="preserve">           </w:t>', 10),
+        ]
+        replaced = False
+        for pattern, width in patterns:
+            if pattern in xml:
+                xml = xml.replace(pattern, f'<w:t xml:space="preserve">{info["name"]:{width}s}</w:t>', 1)
+                print(f"  ✓ 姓名: {info['name']}")
+                replaced = True
+                break
+        if not replaced:
+            print(f"  ✗ 姓名替换失败，未找到匹配模式")
     
     # 学号
     if info.get('student_id'):
-        xml = xml.replace(
-            '<w:t xml:space="preserve">          </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:rFonts w:cs="Calibri" w:eastAsia="Calibri"/>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t xml:space="preserve">  </w:t>\n      </w:r>\n    </w:p>\n    <w:p>\n      <w:pPr>\n        <w:pStyle w:val="Normal"/>\n        <w:rPr/>\n      </w:pPr>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>成员</w:t>',
-            f'<w:t xml:space="preserve">{info["student_id"]}</w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:rFonts w:cs="Calibri" w:eastAsia="Calibri"/>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t xml:space="preserve">  </w:t>\n      </w:r>\n    </w:p>\n    <w:p>\n      <w:pPr>\n        <w:pStyle w:val="Normal"/>\n        <w:rPr/>\n      </w:pPr>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>成员</w:t>', 1)
+        old_pattern = '<w:t xml:space="preserve">          </w:t>'
+        if old_pattern in xml:
+            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{info["student_id"]}</w:t>', 1)
+            print(f"  ✓ 学号: {info['student_id']}")
+        else:
+            print(f"  ✗ 学号替换失败，未找到匹配模式")
     
     # 日期
     if info.get('year'):
-        xml = xml.replace(
-            '<w:t xml:space="preserve">     </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>年</w:t>',
-            f'<w:t xml:space="preserve">{str(info["year"]):5s}</w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>年</w:t>', 1)
+        old_pattern = '<w:t xml:space="preserve">     </w:t>'
+        if old_pattern in xml:
+            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{str(info["year"]):5s}</w:t>', 1)
+            print(f"  ✓ 年份: {info['year']}")
     
     if info.get('month'):
-        xml = xml.replace(
-            '<w:t xml:space="preserve">    </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>月</w:t>',
-            f'<w:t xml:space="preserve">{str(info["month"]):4s}</w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>月</w:t>', 1)
+        old_pattern = '<w:t xml:space="preserve">    </w:t>'
+        if old_pattern in xml:
+            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{str(info["month"]):4s}</w:t>', 1)
+            print(f"  ✓ 月份: {info['month']}")
     
     if info.get('day'):
-        xml = xml.replace(
-            '<w:t xml:space="preserve">   </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>日</w:t>',
-            f'<w:t xml:space="preserve">{str(info["day"]):3s}</w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t>日</w:t>', 1)
+        old_pattern = '<w:t xml:space="preserve">   </w:t>'
+        if old_pattern in xml:
+            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{str(info["day"]):3s}</w:t>', 1)
+            print(f"  ✓ 日期: {info['day']}")
     
     # 指导教师
     if info.get('teacher'):
-        xml = xml.replace(
-            '<w:t>指导教师</w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:rFonts w:cs="Calibri" w:eastAsia="Calibri"/>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t xml:space="preserve"> </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:rFonts w:cs="Calibri" w:eastAsia="Calibri"/>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n          <w:u w:val="single"/>\n        </w:rPr>\n        <w:t xml:space="preserve">            </w:t>\n      </w:r>',
-            f'<w:t>指导教师</w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:rFonts w:cs="Calibri" w:eastAsia="Calibri"/>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n        </w:rPr>\n        <w:t xml:space="preserve"> </w:t>\n      </w:r>\n      <w:r>\n        <w:rPr>\n          <w:rFonts w:cs="Calibri" w:eastAsia="Calibri"/>\n          <w:b/>\n          <w:sz w:val="24"/>\n          <w:szCs w:val="24"/>\n          <w:u w:val="single"/>\n        </w:rPr>\n        <w:t xml:space="preserve">{info["teacher"]:12s}</w:t>\n      </w:r>', 1)
+        old_pattern = '<w:t xml:space="preserve">            </w:t>'
+        if old_pattern in xml:
+            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{info["teacher"]:12s}</w:t>', 1)
+            print(f"  ✓ 指导老师: {info['teacher']}")
+        else:
+            print(f"  ✗ 指导老师替换失败，未找到匹配模式")
     
     print("  表头信息填充完成。")
     return xml
