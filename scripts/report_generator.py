@@ -8,6 +8,7 @@ import zipfile
 import os
 import shutil
 import json
+import re
 from xml.sax.saxutils import escape as xml_escape
 
 
@@ -44,120 +45,139 @@ def write_xml(path, content):
         f.write(content)
 
 
+def find_underlined_placeholder_after(xml, label):
+    """找到label后第一个带下划线的占位符，返回(start, end, spaces)或None"""
+    idx = xml.find(f'<w:t>{label}</w:t>')
+    if idx < 0:
+        return None
+    after = xml[idx + len(f'<w:t>{label}</w:t>'):]
+    u_idx = after.find('<w:u w:val="single"/>')
+    if u_idx < 0:
+        return None
+    after_u = after[u_idx:]
+    ph = '<w:t xml:space="preserve">'
+    p_idx = after_u.find(ph)
+    if p_idx < 0:
+        return None
+    end_idx = after_u.find('</w:t>', p_idx)
+    if end_idx < 0:
+        return None
+    spaces = after_u[p_idx + len(ph):end_idx]
+    abs_start = idx + len(f'<w:t>{label}</w:t>') + u_idx + p_idx
+    abs_end = idx + len(f'<w:t>{label}</w:t>') + u_idx + end_idx + len('</w:t>')
+    return (abs_start, abs_end, spaces)
+
+
+def find_underlined_placeholder_before(xml, label):
+    """找到label前最后一个带下划线的占位符，返回(start, end, spaces)或None"""
+    idx = xml.find(f'<w:t>{label}</w:t>')
+    if idx < 0:
+        return None
+    before = xml[:idx]
+    ph_tag = '<w:t xml:space="preserve">'
+    end_tag = '</w:t>'
+    search_end = len(before)
+    while True:
+        p_idx = before.rfind(ph_tag, 0, search_end)
+        if p_idx < 0:
+            return None
+        e_idx = before.find(end_tag, p_idx)
+        if e_idx < 0:
+            return None
+        spaces = before[p_idx + len(ph_tag):e_idx]
+        check_start = max(0, p_idx - 300)
+        context = before[check_start:p_idx]
+        if '<w:u w:val="single"/>' in context:
+            return (p_idx, e_idx + len(end_tag), spaces)
+        search_end = p_idx
+
+
+def find_first_placeholder_after(xml, label):
+    """找到label后第一个占位符（不要求下划线），返回(start, end, spaces)或None"""
+    idx = xml.find(f'<w:t>{label}</w:t>')
+    if idx < 0:
+        return None
+    after = xml[idx + len(f'<w:t>{label}</w:t>'):]
+    ph = '<w:t xml:space="preserve">'
+    p_idx = after.find(ph)
+    if p_idx < 0:
+        return None
+    end_idx = after.find('</w:t>', p_idx)
+    if end_idx < 0:
+        return None
+    spaces = after[p_idx + len(ph):end_idx]
+    abs_start = idx + len(f'<w:t>{label}</w:t>') + p_idx
+    abs_end = idx + len(f'<w:t>{label}</w:t>') + end_idx + len('</w:t>')
+    return (abs_start, abs_end, spaces)
+
+
 def fill_header(xml, info):
-    """填充表头信息"""
+    """填充表头信息 — 基于标签上下文定位占位符"""
     print("填充表头信息...")
-    
-    # 年级 - 使用更灵活的匹配
-    if info.get('grade'):
-        old_pattern = '<w:t xml:space="preserve">           </w:t>'
-        if old_pattern in xml:
-            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{info["grade"]:10s}</w:t>', 1)
-            print(f"  ✓ 年级: {info['grade']}")
+    fields = [
+        # (key, label, direction, default_width)
+        ('grade',       '级',     'before', 11),
+        ('class_name',  '班',     'before',  8),
+        ('name',        '报告人姓名', 'after',  11),
+        ('student_id',  '学号',    'after',  10),
+        ('year',        '年',     'before',  5),
+        ('month',       '月',     'before',  4),
+        ('day',         '日',     'before',  3),
+        ('teacher',     '指导教师', 'after',  12),
+    ]
+    for key, label, direction, dw in fields:
+        val = info.get(key, '')
+        if not val:
+            continue
+        val_str = str(val)
+        found = None
+        if direction == 'before':
+            found = find_underlined_placeholder_before(xml, label)
         else:
-            print(f"  ✗ 年级替换失败，未找到匹配模式")
-    
-    # 班级
-    if info.get('class_name'):
-        old_pattern = '<w:t xml:space="preserve">        </w:t>'
-        if old_pattern in xml:
-            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{info["class_name"]:8s}</w:t>', 1)
-            print(f"  ✓ 班级: {info['class_name']}")
-        else:
-            print(f"  ✗ 班级替换失败，未找到匹配模式")
-    
-    # 姓名
-    if info.get('name'):
-        # 尝试多种匹配模式
-        patterns = [
-            ('<w:t xml:space="preserve">           </w:t>', 10),
-        ]
-        replaced = False
-        for pattern, width in patterns:
-            if pattern in xml:
-                xml = xml.replace(pattern, f'<w:t xml:space="preserve">{info["name"]:{width}s}</w:t>', 1)
-                print(f"  ✓ 姓名: {info['name']}")
-                replaced = True
-                break
-        if not replaced:
-            print(f"  ✗ 姓名替换失败，未找到匹配模式")
-    
-    # 学号
-    if info.get('student_id'):
-        old_pattern = '<w:t xml:space="preserve">          </w:t>'
-        if old_pattern in xml:
-            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{info["student_id"]}</w:t>', 1)
-            print(f"  ✓ 学号: {info['student_id']}")
-        else:
-            print(f"  ✗ 学号替换失败，未找到匹配模式")
-    
-    # 日期
-    if info.get('year'):
-        old_pattern = '<w:t xml:space="preserve">     </w:t>'
-        if old_pattern in xml:
-            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{str(info["year"]):5s}</w:t>', 1)
-            print(f"  ✓ 年份: {info['year']}")
-    
-    if info.get('month'):
-        old_pattern = '<w:t xml:space="preserve">    </w:t>'
-        if old_pattern in xml:
-            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{str(info["month"]):4s}</w:t>', 1)
-            print(f"  ✓ 月份: {info['month']}")
-    
-    if info.get('day'):
-        old_pattern = '<w:t xml:space="preserve">   </w:t>'
-        if old_pattern in xml:
-            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{str(info["day"]):3s}</w:t>', 1)
-            print(f"  ✓ 日期: {info['day']}")
-    
-    # 指导教师
-    if info.get('teacher'):
-        old_pattern = '<w:t xml:space="preserve">            </w:t>'
-        if old_pattern in xml:
-            xml = xml.replace(old_pattern, f'<w:t xml:space="preserve">{info["teacher"]:12s}</w:t>', 1)
-            print(f"  ✓ 指导老师: {info['teacher']}")
-        else:
-            print(f"  ✗ 指导老师替换失败，未找到匹配模式")
-    
+            found = find_underlined_placeholder_after(xml, label)
+        if found is None:
+            print(f"  ✗ {key}: 未找到 '{label}' 前后的占位符")
+            continue
+        start, end, spaces = found
+        width = len(spaces)
+        new_text = f'<w:t xml:space="preserve">{val_str:{width}s}</w:t>'
+        xml = xml[:start] + new_text + xml[end:]
+        print(f"  ✓ {key}: {val_str}")
     print("  表头信息填充完成。")
     return xml
 
 
 def fill_course_and_experiment(xml, course_name, experiment_name):
-    """填充课程名称和实验名称"""
+    """填充课程名称和实验名称 — 基于标签上下文定位"""
     print("填充课程名称和实验名称...")
-    
+
     if course_name:
-        xml = xml.replace(
-            '<w:t xml:space="preserve">                   </w:t>\n            </w:r>\n          </w:p>\n        </w:tc>\n        <w:tc>\n          <w:tcPr>\n            <w:tcW w:w="1417"',
-            f'<w:t>{xml_escape(course_name)}</w:t>\n            </w:r>\n          </w:p>\n        </w:tc>\n        <w:tc>\n          <w:tcPr>\n            <w:tcW w:w="1417"', 1)
-    
+        found = find_first_placeholder_after(xml, '课程名称')
+        if found:
+            start, end, spaces = found
+            width = len(spaces)
+            new_text = f'<w:t xml:space="preserve">{xml_escape(course_name):{width}s}</w:t>'
+            xml = xml[:start] + new_text + xml[end:]
+            print(f"  ✓ 课程名称: {course_name}")
+        else:
+            print(f"  ✗ 课程名称: 未找到占位符")
+
     if experiment_name:
-        old = '''            <w:r>
-              <w:rPr>
-                <w:sz w:val="24"/>
-                <w:szCs w:val="24"/>
-              </w:rPr>
-            </w:r>
-          </w:p>
-        </w:tc>
-      </w:tr>
-      <w:tr>
-        <w:trPr/>'''
-        new = f'''            <w:r>
-              <w:rPr>
-                <w:sz w:val="24"/>
-                <w:szCs w:val="24"/>
-              </w:rPr>
-              <w:t>{xml_escape(experiment_name)}</w:t>
-            </w:r>
-          </w:p>
-        </w:tc>
-      </w:tr>
-      <w:tr>
-        <w:trPr/>'''
-        xml = xml.replace(old, new, 1)
-    
+        label = '<w:t>实验名称</w:t>'
+        idx = xml.find(label)
+        if idx >= 0:
+            after = xml[idx + len(label):]
+            empty_r = '<w:r><w:rPr><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:r>'
+            r_idx = after.find(empty_r)
+            if r_idx >= 0:
+                new_r = f'<w:r><w:rPr><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t>{xml_escape(experiment_name)}</w:t></w:r>'
+                xml = xml[:idx + len(label)] + after[:r_idx] + new_r + after[r_idx + len(empty_r):]
+                print(f"  ✓ 实验名称: {experiment_name}")
+            else:
+                print(f"  ✗ 实验名称: 未找到空占位")
+        else:
+            print(f"  ✗ 实验名称: 未找到标签")
+
     print("  课程名称和实验名称填充完成。")
     return xml
 
